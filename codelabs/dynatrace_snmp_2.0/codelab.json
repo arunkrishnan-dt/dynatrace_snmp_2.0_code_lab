@@ -1,0 +1,25 @@
+{
+  "environment": "web",
+  "format": "html",
+  "prefix": "https://storage.googleapis.com",
+  "mainga": "UA-49880327-14",
+  "updated": "2022-01-18T11:15:39+13:00",
+  "id": "dynatrace_snmp_2.0",
+  "duration": 0,
+  "title": "Dyntrace SNMP 2.0 How To",
+  "authors": "Arun Krishnan",
+  "summary": "Dynatrace SNMP 2.0 How To",
+  "source": "snmp_2.0_code_lab.md",
+  "theme": "",
+  "status": [
+    "published"
+  ],
+  "category": [
+    "snmp"
+  ],
+  "tags": [
+    "snmp"
+  ],
+  "feedback": "https://github.com/arunkrishnan-dt/dynatrace_snmp_2.0",
+  "url": "dynatrace_snmp_2.0"
+}

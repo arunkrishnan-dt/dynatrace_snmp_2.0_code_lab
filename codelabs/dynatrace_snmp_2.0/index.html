@@ -1,0 +1,438 @@
+
+<!doctype html>
+
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <meta name="theme-color" content="#4F7DC9">
+  <meta charset="UTF-8">
+  <title>Dyntrace SNMP 2.0 How To</title>
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro:400|Roboto:400,300,400italic,500,700|Roboto+Mono">
+  <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://storage.googleapis.com/codelab-elements/codelab-elements.css">
+  <style>
+    .success {
+      color: #1e8e3e;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <google-codelab-analytics gaid="UA-49880327-14"></google-codelab-analytics>
+  <google-codelab codelab-gaid=""
+                  id="dynatrace_snmp_2.0"
+                  title="Dyntrace SNMP 2.0 How To"
+                  environment="web"
+                  feedback-link="https://github.com/arunkrishnan-dt/dynatrace_snmp_2.0">
+    
+      <google-codelab-step label="Gather SNMP OIDs for extension" duration="0">
+        <p>Dynatrace Extension 2.0 SNMP framework requires that you provide exact OIDs (Object Identifiers) for metrics you wish to monitor. This approach is different to other common SNMP managers where you can present an entire MIB file.</p>
+<h2 is-upgraded>Terminology:</h2>
+<p><strong>OID (Object Identifier)</strong></p>
+<p>An OID is a sequence of digits separated by ‘.&#39; that refers to a particular metric on the device.</p>
+<p>For example, the OID <code>1.3.6.1.2.1.1.3.0</code> refers to <code>sysUpTime</code> which provides the Uptime of the device in Timeticks.</p>
+<p><strong>MIB (Management Information Base)</strong>:</p>
+<p>A MIB is a file, provided by device manufacturer, that contains OIDs accepted by the device. A device usually has multiple MIBs focussing on certain set of metrics. For example, there can be a MIB with OIDs for resource metrics like CPU, Memory etc and another for interface metrics, and so on.</p>
+<p>There are 2 types of MIBs:</p>
+<ul>
+<li>Generic MIBs that are common to all devices irrespective of make and model.</li>
+<li>Device specific MIBs that provide device specific metrics.</li>
+</ul>
+<p>All MIBs accepted by a device are usually available to download from device management UI and/or the manufacturer website.</p>
+<h2 is-upgraded>Reading MIB files</h2>
+<p>MIB files usually come with <code>.txt</code>, <code>.my</code> or <code>.mib</code> extensions, but can also depend on manufacturer. The common factor is that all MIBs should be readable in a text editor.</p>
+<p>The MIB files usually provide OIDs in string format. In order to get the numeric format you may have to use a MIB browser software.</p>
+<p>iReasoning is an example for a popular MIB browser. Please visit <a href="http://www.ireasoning.com/" target="_blank">iReasoning Website</a> for details.</p>
+<h2 is-upgraded>Gathering required OIDs</h2>
+<p>Once you have all the relevant MIB files, its time to gather OIDs.</p>
+<p>TIP: Recommend writing down a list of metrics that are critical to monitor for your device before you begin. MIB files can contain thousands of OIDs and you can easily get lost looking though it. I have found writing down critical metrics helps maintain focus.</p>
+<p>There are broadly two types of OIDs:</p>
+<ol type="1">
+<li>OIDs that return single values.</li>
+<li>OIDs that return a table.</li>
+</ol>
+<p><strong>OIDs that provide single value</strong></p>
+<p>These are the OIDs that provide a single return value - like Uptime, CPU, Memory etc. These metrics should be retrivable using a <code>snmpget</code> command.</p>
+<p>Example:</p>
+<p><code>snmpget -v 2c -c public 127.0.0.1 1.3.6.1.2.1.1.3.0</code></p>
+<p>This particular query returns the UpTime of a device.</p>
+<p>Breaking down the query:</p>
+<p><code>snmpget</code>: snmp command to gather a metric</p>
+<p><code>-v 2c</code>: Mentions we are using SNMP authenticaion version 2c</p>
+<p><code>-c public</code>: Community string for authenticaion</p>
+<p><code>127.0.0.1</code>: IP address of device</p>
+<p><code>1.3.6.1.2.1.1.3.0</code>: OID to gather details</p>
+<p>TIP: Recommend running both <code>snmget</code> and <code>snmwalk</code> on all OIDs. This way you can easily identify if the OID returns a table or single values. Sometimes you will find that you have to append a <code>.0</code> or <code>.1</code> to get a single value OID to get the value. This does not make it a table OID.</p>
+<p><strong>OIDs that return a table</strong></p>
+<p>These are the OIDs that return a table of data when queried. An example for this OID is the interface root OID <code>1.3.6.1.2.1.2.2.1</code>. These metrics are retrievable using <code>snmwalk</code> command.</p>
+<p>Example:</p>
+<p><code>snmpwalk -v 2c -c public 127.0.0.1 1.3.6.1.2.1.2.2.1</code></p>
+<p>This particular query returns values like Index, Description, Type, MTU, Speed, InOctets, OutOctets etc for each interface on a device. If the device has 2 interfaces, each metric will be returned for both interfaces, but if the devices has 20 interfaces, each metric will be returned for all 20 interfaces and so on. The table size (values returned) depends on characteristics of the device.</p>
+<p class="image-container"><img alt="snmpwalk_table" src="img/6de052b1f5fc9c52.png"></p>
+<p>You will notice that an <code>snmpget</code> on this oid will return an error message as below.</p>
+<p class="image-container"><img alt="snmpwalk_table_error" src="img/1582696921ddc6d3.png"></p>
+<p>Device MIB documentation is the best way to identify if an OID returns a single value or a table.</p>
+<h2 is-upgraded>OID details to note down during research</h2>
+<ol type="1">
+<li>OID in number format. Eg: <code>1.3.6.1.2.1.1.3.0</code></li>
+<li>Whether the OID returns a single value or a table</li>
+<li>The return variable type for each value (metric) returned  Some common variable types are:  <ul>
+<li>Counter32</li>
+<li>Counter64<br></li>
+<li>INTEGER</li>
+<li>Gauge32</li>
+<li>Gauge64</li>
+<li>STRING<br></li>
+<li>Timeticks</li>
+</ul>
+  This can be seen in the result of an <code>snmpget</code> or <code>snmwalk</code> command. See highlighted in below result.  <img alt="snmpwalk_table_highlighted" src="img/d1201babc1def30e.png"></li>
+</ol>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Prepare extension.yaml" duration="0">
+        <p>Dynatrace Extension Framework 2.0 provides the capability to define extension configuration as a <code>.yaml</code> file. In this page, you will learn how to prepare <code>extension.yaml</code> file rquired for SNMP monitoring.</p>
+<p>Please read official <a href="https://www.dynatrace.com/support/help/shortlink/extensions-concepts" target="_blank">Extensions 2.0 concepts</a> for how the extension works.</p>
+<p>This documentation does not require a deep understanding of <code>yaml</code> file structure but recommend light reading on the topic.</p>
+<h2 is-upgraded>Extension folder structure</h2>
+<p>Please structure your extension working directory as below (required):</p>
+<pre><code>SNMP
+ |
+ --&gt; Cisco                      # OK to rename with your device name
+        |
+        --extension             # DO NOT rename
+             |
+             -- extension.yaml  # DO NOT rename
+
+</code></pre>
+<h2 is-upgraded>YAML file</h2>
+<p>The <code>extension.yaml</code> file follows below basic structure:</p>
+<pre><code language="language-yaml" class="language-yaml">name: &lt;value&gt;               
+version: &lt;value&gt;
+minDynatraceVersion: &lt;value&gt;
+author:
+  name: &lt;value&gt;
+
+metrics:
+- key: &lt;value&gt;
+   metadata:
+      displayName: &lt;value&gt;
+      description: &lt;value&gt;
+      unit: &lt;value&gt;
+- key: &lt;value&gt;
+   metadata:
+      displayName: &lt;value&gt;
+      description: &lt;value&gt;
+      unit: &lt;value&gt;
+
+snmp:
+- group: &lt;value&gt;
+  interval: &lt;value&gt;
+  
+  dimensions:
+  - key: &lt;value&gt;
+    value: &lt;value&gt;
+
+  subgroups:
+    - subgroup: &lt;value&gt;
+      table: false    
+      metrics:
+        - key: &lt;value&gt;
+          value: oid:&lt;value&gt;
+          type: &lt;value&gt;
+    - subgroup: &lt;value&gt;
+      table: true
+      dimensions:
+        - key: &lt;value&gt;
+          value: &lt;value&gt;
+      metrics:
+        - key: &lt;value&gt;
+          value: oid:&lt;value&gt;
+          type: &lt;value&gt;
+
+</code></pre>
+<p>Each parameter in order shown above:</p>
+<p><code>name</code>: A name for the extension. This have to be in the format <code>custom:<your_chosen_name></code>. Example: <code>custom:cisco_router_snmp</code></p>
+<p><code>version</code>: This is the your extension iteration version. Example: <code>1.0.0</code> and go up as <code>1.1.0</code>, <code>1.2.0</code> and so on as you update the extension.</p>
+<p><code>minDynatraceVersion</code>: Earliest version of Dynatrace Server this extension can run on. For the purpose of this documentation please use <code>"1.217"</code></p>
+<p><code>author</code></p>
+<p><code>name</code>: Company/your name.</p>
+<p><code>metrics</code>: In this section you define metadata like name, description, unit for your metrics.</p>
+<p><code>key</code>: This is a unique identifier for your metric. Example: <code>custom.cisco.switch.cpu.usage.5second</code>. Please see <a href="https://www.dynatrace.com/support/help/shortlink/metric-ingestion-protocol#metric-key-required" target="_blank">Metric key</a> for format restrictions.</p>
+<p><code>name</code>: A friendly name for your metric. Example &#34;CPU Usage % - 5secs&#34;</p>
+<p><code>description</code>: A description for your metric</p>
+<p><code>unit</code>: Unit for your metric. Example Percentage, Byte, Count etc. For full list of available Units see <code>Unit</code> parameter under <a href="https://www.dynatrace.com/support/help/shortlink/api-metrics-v2-get-all#response" target="_blank">Response body &gt; Response parameters (tab) &gt; The MetricDescriptor object &gt; unit &gt; the element can hold these values</a></p>
+<p><code>snmp</code>: In this section all required metrics are organized in groups and subgroups. Indivual and Table OIDs have to specified in separate subgroups.</p>
+<p><code>group</code>: A group of metrics. Please see <a href="https://www.dynatrace.com/support/help/shortlink/extension-yaml#groups-and-subgroups" target="_blank">Groups and subgroups</a> for details.</p>
+<p><code>interval</code>: Frequecy of SNMP polling. Examples: 1m, 5m etc. Please see <a href="https://www.dynatrace.com/support/help/shortlink/extension-yaml#interval" target="_blank">Interval</a> for details.</p>
+<p><code>dimensions</code>: Your dimension value. An analogy for dimension is - If ‘City&#39; is the Dimension, then ‘London&#39;, ‘New York&#39;, ‘Auckland&#39; etc are some dimension values. A common dimension for SNMP is the device IP address.</p>
+<p>A dimension provides the ability to filter metrics. For example, if you want to see CPU breakdown per device, you can specify IP address as a dimension and then use it to ‘split&#39; or ‘filter&#39; results. Please see <a href="https://www.dynatrace.com/support/help/shortlink/metric-ingestion-protocol#dimension-optional" target="_blank">Dimension</a> for more details.</p>
+<p>Multiple dimensions can be defined.</p>
+<p><code>key</code>: A unique key for your dimension. Examples: <code>this:device.address</code>, <code>device:name</code>. Please note that keys cannot have Uppercase characters.</p>
+<p><code>value: oid:</code>: This is where you tell extension where to pick up Dimension values. Examples: <code>this:device.address</code> - value based on extension configuration &amp; <code>1.3.6.1.2.1.1.5.0</code> - value from OID</p>
+<p><code>subgroups</code>: Required OIDs are organized into separate subgroups.</p>
+<p><code>metrics</code></p>
+<p><code>key</code>: The unique values here are the same ‘keys&#39; from root <code>metrics</code> where you defined metadata for the key. So the same <code>key</code> appears twice in the extension.</p>
+<ol type="1">
+<li>under root <code>metrics</code> and</li>
+<li>under <code>snmp</code> &gt; <code>group</code> &gt; <code>subgroups</code> &gt; <code>metrics</code></li>
+</ol>
+<p class="image-container"><img alt="extension_keys" src="img/32294ddb657930b5.png"></p>
+<p>Other Unique items in this section that were not discussed earlier are <code>table</code> and <code>type</code></p>
+<p><code>table</code>: This tells the extension if the OIDs are to be treated as individual OIDs or table OIDs. Acceptable values are <code>true</code> or <code>false</code></p>
+<p><code>type</code>: Dynatrace supports two metric types - <code>gauge</code> and <code>count</code> metrics. Please see <a href="https://www.dynatrace.com/support/help/shortlink/metric-ingestion-protocol#payload-required" target="_blank">Payload</a> for details on these types. Below is a generic rule I follow.</p>
+<p>If <code>snmpget</code> or <code>snmpwalk</code> of an OID returns the variable type as <code>Counter32</code> or <code>Counter64</code>, then ‘type&#39; is <code>Count</code> and if the return variable type is anything <strong>EXCEPT </strong><code>STRING</code>, type is <code>Gauge</code></p>
+<p><code>STRING</code> variable types can <strong>ONLY</strong> be dimensions. String values cannot be sent to Dynatrace as a metric.</p>
+<p class="image-container"><img alt="extension_metric_type" src="img/abcaaa33d0d109a2.png"></p>
+<h2 is-upgraded>Example extension</h2>
+<p>Here is a full example of an extension to monitor Cisco Network Switches.</p>
+<p>Please note that this extension has not been tested for all Cisco switches. The OIDs may vary between models.</p>
+<pre><code language="language-yaml" class="language-yaml">name:  custom:custom.snmp.cisco.switch
+version: 1.0.0
+minDynatraceVersion: &#34;1.217&#34;
+author:
+  name: &#34;Monitoring team&#34;
+metrics:
+  - key: custom.snmp.cisco.switch.uptime
+    metadata:
+      displayName: System uptime
+      description: System uptime
+      unit: Count
+  - key: custom.snmp.cisco.switch.cpu.usage.5second
+    metadata:
+      displayName: CPU Usage % - 5secs
+      description: The overall CPU busy percentage in the last 5 second period.
+      unit: Percent
+  - key: custom.snmp.cisco.switch.cpu.usage.1minute
+    metadata:
+      displayName: CPU Usage % - 1min
+      description: The overall CPU busy percentage in the last 1 minute period.
+      unit: Percent
+  - key: custom.snmp.cisco.switch.cpu.usage.5minutes
+    metadata:
+      displayName: CPU Usage % - 5mins
+      description: The overall CPU busy percentage in the last 5 minute period.
+      unit: Percent
+  - key: custom.snmp.cisco.switch.memory.used
+    metadata:
+      displayName: Memory Used
+      description: The overall CPU wide system memory which is currently under use.
+      unit: KiloByte
+  - key: custom.snmp.cisco.switch.memory.free
+    metadata:
+      displayName: Memory Free
+      description: The overall CPU wide system memory which is currently free.
+      unit: KiloByte  
+  - key: custom.snmp.cisco.switch.ifHCInOctets
+    metadata:
+      displayName: Interface Traffic - In (IfXTable)
+      description: The total number of octets received on the interface.
+      unit: Byte
+  - key: custom.snmp.cisco.switch.ifHCOutOctets
+    metadata:
+      displayName: Interface Traffic - Out (IfXTable)
+      description: The total number of octets transmitted out of the interface.
+      unit: Byte  
+  - key: custom.snmp.cisco.switch.ifOperStatus
+    metadata:
+      displayName: Interface operational status 
+      description: The current operational state of the interface. (1)up,(2)down,(3)testing,(4)unknown,(5)dormant,(6)notPresent,(7)lowerLayerDown
+      unit: State
+  - key: custom.snmp.cisco.switch.ifInOctets
+    metadata:
+      displayName: Interface traffic - In 
+      description: The total number of octets received on the interface.
+      unit: Byte
+  - key: custom.snmp.cisco.switch.ifOutOctets
+    metadata:
+      displayName: Interface traffic - Out
+      description: The total number of octets transmitted out of the interface.
+      unit: Byte  
+  
+snmp:
+- group: Cisco Switch
+  interval: 5m
+  dimensions:
+  - key: device:address  
+    value: this:device.address
+  - key: device:name    
+    value: oid:1.3.6.1.2.1.1.5.0
+  subgroups:
+    - subgroup: Health
+      table: false      
+      metrics:
+        - key: custom.snmp.cisco.switch.uptime
+          value: oid:1.3.6.1.2.1.1.3.0
+          type: gauge
+        - key: custom.snmp.cisco.switch.cpu.usage.5second
+          value: oid:1.3.6.1.4.1.9.9.109.1.1.1.1.6.1
+          type: gauge
+        - key: custom.snmp.cisco.switch.cpu.usage.1minute
+          value: oid:1.3.6.1.4.1.9.9.109.1.1.1.1.7.1
+          type: gauge
+        - key: custom.snmp.cisco.switch.cpu.usage.5minutes
+          value: oid:1.3.6.1.4.1.9.9.109.1.1.1.1.8.1
+          type: gauge
+        - key: custom.snmp.cisco.switch.memory.used
+          value: oid:1.3.6.1.4.1.9.9.109.1.1.1.1.12.1
+          type: gauge
+        - key: custom.snmp.cisco.switch.memory.free
+          value: oid:1.3.6.1.4.1.9.9.109.1.1.1.1.13.1
+          type: gauge   
+    
+
+    - subgroup: IF XTable
+      table: true
+      dimensions:
+        - key: cisco:interface-name
+          value: oid:1.3.6.1.2.1.31.1.1.1.1
+        - key: cisco:interface-alias
+          value: oid:1.3.6.1.2.1.31.1.1.1.18
+      metrics:
+        - key: custom.snmp.cisco.switch.ifHCInOctets
+          value: oid:1.3.6.1.2.1.31.1.1.1.6
+          type: count
+        - key: custom.snmp.cisco.switch.ifHCOutOctets
+          value: oid:1.3.6.1.2.1.31.1.1.1.10
+          type: count
+    
+    - subgroup: IF Table
+      table: true
+      dimensions:
+        - key: cisco:interface-index
+          value: oid:1.3.6.1.2.1.2.2.1.1
+        - key: cisco:interface-descr
+          value: oid:1.3.6.1.2.1.2.2.1.2        
+      metrics:
+        - key: custom.snmp.cisco.switch.ifOperStatus
+          value: oid:1.3.6.1.2.1.2.2.1.8
+          type: gauge        
+        - key: custom.snmp.cisco.switch.ifInOctets
+          value: oid:1.3.6.1.2.1.2.2.1.10
+          type: count
+        - key: custom.snmp.cisco.switch.ifOutOctets
+          value: oid:1.3.6.1.2.1.2.2.1.16
+          type: count
+
+</code></pre>
+<p>Once <code>extension.yaml</code> is ready, its time to package the extension to a zip file.</p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Sign Extension" duration="0">
+        <p>The next step in extension creation process is to Sign your extension with a certificate and make it ready for use.</p>
+<p>NOTE: This page describes generating and signing an extension using Dynatrace Open Source <a href="https://github.com/dynatrace-oss/dt-cli" target="_blank">dt-cli</a> utility. Please see <a href="https://www.dynatrace.com/support/help/shortlink/sign-extension" target="_blank">Sign extension</a> official documentation for manual step by step instructions.</p>
+<h2 is-upgraded>Python install</h2>
+<p><code>dt-cli</code> is a Python utility and therefore requires Python installed on your computer before you can use it.</p>
+<p>This document describes Python installation on Windows OS but steps are similar for other Operating Systems.</p>
+<ol type="1">
+<li><a href="https://www.python.org/downloads/" target="_blank">Download Python - v3.9+</a></li>
+</ol>
+<p>Dowload Python v3.9+ from <a href="https://www.python.org/downloads/" target="_blank">Python official Downloads page</a></p>
+<p class="image-container"><img alt="python_download" src="img/d5e1acdf500c1996.png"></p>
+<ol type="1">
+<li>Install Python  Open downloaded <code>.exe</code> file, select ‘Add Python 3.10 to PATH&#39; checkbox and then click <code>Install Now</code>  <img alt="python_install_1" src="img/b93e1217209e4e86.png">  Wait for the installation to complete successfully and click close.  <img alt="python_install_success" src="img/20880f9723c1df37.png"></li>
+<li>Open a PowerShell.exe terminal and confirm installation successful.  <img alt="python_confirm_success" src="img/8bc363ff31c14a8.png"></li>
+</ol>
+<h2 is-upgraded>dt-cli install</h2>
+<ol type="1">
+<li>From your PowerShell terminal run <code>pip install dt-cli</code>. This will download the <code>dt-cli</code> utility onto your computer.  <img alt="pip_install_dt_cli" src="img/c3fd0fe65319bb81.png"></li>
+<li>Confirm success by running <code>dt --help</code>  <img alt="dt_cli_confirm_installed" src="img/a28ee54fe7e73248.png"></li>
+</ol>
+<h2 is-upgraded>Generate certficates and sign extension</h2>
+<p>Change terminal path to your directory that has the ‘extension&#39; folder. Then run <code>dt extension gencerts</code> - Leave all entries blank by hitting ‘Enter&#39; key.</p>
+<p>This generates the CA and Developer Certificates and Keys required to sign the extension.</p>
+<p class="image-container"><img alt="gencerts" src="img/58eb9459ec74741e.png"></p>
+<p>Next, sign extension by running <code>dt extension build</code>. This command uses the generated certificates to sign the extension and generate a zip file.</p>
+<h2 is-upgraded>Upload <code>ca.pem</code> to ActiveGates</h2>
+<p>The CA certificate used to sign an extension has to be present on all ActiveGates from which the extension is to run.</p>
+<p>If there are multiple ActiveGates in a tenancy, Dynatrace chooses an ActiveGate to run the extension based on ActiveGate group specified in Monitoring configuration (we will be looking at this later).</p>
+<p>Copy <code>ca.pem</code> file to following ActiveGate directory on respective OS.</p>
+<p>Windows: <code>%PROGRAMDATA%\dynatrace\oneagent\agent\config\certificates\</code></p>
+<p>Linux: <code>/var/lib/dynatrace/oneagent/agent/config/certificates</code></p>
+<h2 is-upgraded>Assign a group to your ActiveGate</h2>
+<p>During SNMP monitoring setup, there is the option to select ActiveGate ‘Group&#39; to run the extension. All ActiveGates out of the box belong to ‘default&#39; group. If you would like the extension to run from a subset of your ActiveGates, a group has to be defined.</p>
+<p>To add an ActiveGate to a group, specify ‘group&#39; parameter in ActiveGate <code>custom.properties</code> file and restart Dynatrace ActiveGate service.</p>
+<p>Location of custom.properties file:</p>
+<p>Windows: <code>%PROGRAMDATA%\dynatrace\gateway\config\custom.properties</code></p>
+<p>Linux: <code>/var/lib/dynatrace/gateway/config/custom.properties</code></p>
+<p>Content to add in <code>custom.properties</code>:</p>
+<pre><code language="language-bash" class="language-bash">[collector]
+group = snmp_extension      # Feel free to chose another group name 
+</code></pre>
+<p class="image-container"><img alt="activegate_group" src="img/254fa8d0da33c5ae.png"></p>
+<p>Once ActiveGate service is restarted, the new group name should appear in ActiveGate properties under <code>Deployment Status > ActiveGates > <your_activeGate></code>.</p>
+<p class="image-container"><img alt="activegate_group_2" src="img/fc93c78737b3bb4.png"></p>
+<h2 is-upgraded>Upload <code>ca.pem</code> to Dynatrace Tenancy</h2>
+<p><code>ca.pem</code> file has to be uploaded to tenancy as well. This is for Dynatrace to verify the integrity of extensions that are uploaded.</p>
+<p>Navigate to <code>Settings > Web and mobile monitoring > Credential vault</code> and click <code>Add new credential</code>.</p>
+<p class="image-container"><img alt="upload_certificate" src="img/50894d717696b1fd.png"></p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Upload extension to tenancy and setup monitoring" duration="0">
+        <p>Extension upload and monitoring configuration can be done via both UI and API. This document covers the UI method. If you are interested in doing these through API please refer to <a href="https://www.dynatrace.com/support/help/shortlink/extension-lifecycle" target="_blank">Manage Extension 2.0 lifecycle</a></p>
+<h2 is-upgraded>Upload extension</h2>
+<ol type="1">
+<li>Navigate to <code>Manage > Hub > Extension 2.0 in your environment</code> and click on <code>Upload custom Extesion 2.0</code>  <img alt="extension upload" src="img/8f0a689037fa5af.png"></li>
+<li>Upload your extension to the page with relevant details  <img alt="extension upload 2" src="img/a44d2f9b2ab10949.png"></li>
+<li>Upload extension takes you to the configuration page.  <img alt="extension configuration" src="img/983167295cf9f41.png"></li>
+</ol>
+<h2 is-upgraded>Configure extension endpoints</h2>
+<p>You get to the configuration page right after you upload the extension or by navigating to <code>Manage > Hub > Extension 2.0 in your environment > Your extension</code></p>
+<p class="image-container"><img alt="extension configuration 1" src="img/59a7aabb63414686.png"></p>
+<p>Once on configuration page, follow below steps providing relevant details on each page.</p>
+<p class="image-container"><img alt="extension configuration 2" src="img/ea519095b06115db.png"></p>
+<p class="image-container"><img alt="extension configuration 3" src="img/8f102d1f3e3a676.png"></p>
+<p class="image-container"><img alt="extension configuration 4" src="img/8389b8eec3b2d2f.png"></p>
+<p class="image-container"><img alt="extension configuration 5" src="img/687207803804fed.png"></p>
+<p>Once saved the configuration should show as active.</p>
+<p class="image-container"><img alt="extension configuration 6" src="img/badbaab8fa17546e.png"></p>
+<p>Add more monitoring configuration/devices as required.</p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Check metrics and chart" duration="0">
+        <p>Once extension successfully connects to your device, metrics should start appearing under <code>Metrics</code> view in UI. You can focus on just your metrics by filtering with metric key name.</p>
+<p>Please note metrics can take upto 5 minutes to appear after first setup.</p>
+<p class="image-container"><img alt="metrics" src="img/6d98b73837191af2.png"></p>
+<h2 is-upgraded>Metadata for ‘count&#39; metrics</h2>
+<p>You will notice that metrics for which you had defined ‘type: count&#39; (i.e Counter metrics) don&#39;t show the metadata you had defined for it in the extension. Instead, they just show up with the full key name.</p>
+<p>This is a known issue and can be fixed by manually editing the metadata for the metric as below.</p>
+<p class="image-container"><img alt="metrics_count_1" src="img/49422209867da24b.png"></p>
+<p class="image-container"><img alt="metrics_count_2" src="img/1b6f04641c1078b2.png"></p>
+<p class="image-container"><img alt="metrics_count_3" src="img/fc7febac5b1e2ee8.png"></p>
+<h2 is-upgraded>Chart metrics</h2>
+<p>From this point all metrics can be charted as usual using Dynatrace Data Explorer.</p>
+<p class="image-container"><img alt="create chart" src="img/a374c6a520bad5e6.png"></p>
+<p class="image-container"><img alt="create chart" src="img/e83935498305164d.png"></p>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Troubleshooting" duration="0">
+        <ol type="1">
+<li>Issues during upload  Fix: Upload <code>ca.pem</code> certificate to tenancy  <img alt="upload cert error" src="img/ef4b5cd0e7bb7d65.png"></li>
+<li>Metrics don&#39;t show after endpoints are setup  Reason: SNMP Poll to device is not running as expected.  Fix: Check logs at below location to learn more (On ActiveGates in Extension group)  Windows: <code>%PROGRAMDATA%\dynatrace\remotepluginmodule\log\extensions</code>  Linux: <code>/var/lib/dynatrace/remotepluginmodule/log/extensions</code></li>
+</ol>
+<p>For more details refer to <a href="https://www.dynatrace.com/support/help/shortlink/extensions20" target="_blank">Extensions 2.0 official documentation</a></p>
+
+
+      </google-codelab-step>
+    
+  </google-codelab>
+
+  <script src="https://storage.googleapis.com/codelab-elements/native-shim.js"></script>
+  <script src="https://storage.googleapis.com/codelab-elements/custom-elements.min.js"></script>
+  <script src="https://storage.googleapis.com/codelab-elements/prettify.js"></script>
+  <script src="https://storage.googleapis.com/codelab-elements/codelab-elements.js"></script>
+  <script src="//support.google.com/inapp/api.js"></script>
+
+</body>
+</html>
